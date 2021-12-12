@@ -25,18 +25,21 @@
 #include <pthread.h>    /* POSIX threads */
 #include "paUtils.h"
 #include "fifo.h"
+#include <opus_multistream.h>
 
 #define SAMPLE_RATE 48000
-#define NUM_CHAN    2
 #define FRAMES_PER_BUFFER 960 //for Opus
 #define FRAME_SIZE FRAMES_PER_BUFFER
-#define CHANNELS 2
-#define APPLICATION OPUS_APPLICATION_AUDIO
-#define BITRATE 64000
 #define MAX_FRAME_SIZE 6*FRAME_SIZE
 #define MAX_PACKET_SIZE (3*1276)
 #define SHORT_MAX 32767
 #define MAX_LOG (180*1000) //1 hour of run time
+
+// Multi-channel setups
+// should work for 5.1 audio (6 channels)
+#define NUM_CHAN 6
+#define NUM_STREAMS 6
+#define NUM_COUPLED_STREAMS 0
 
 /* log structure */
 typedef struct {
@@ -53,7 +56,7 @@ typedef struct {
     int channels;
     int frames;
     /*Holds the state of the encoder and decoder */
-    OpusDecoder *decoder;
+    OpusMSDecoder *decoder;
     /* socket */
     int sock;
     struct sockaddr_in server;
@@ -86,6 +89,7 @@ int main(int argc, char *argv[])
     int portno;
     char *host;
     struct hostent *hp;
+    unsigned char mapping[] = {0,1,2,3,4,5};
     /* POSIX threads */
     int rc1, mrc1;
     pthread_t thread1;
@@ -110,7 +114,12 @@ int main(int argc, char *argv[])
     cb_data.log.fifo_len = 0;
 
     /* Create a new opus decoder state. */
-    cb_data.decoder = opus_decoder_create(cb_data.samplerate, cb_data.channels, &err);
+    cb_data.decoder = opus_multistream_decoder_create(cb_data.samplerate,
+                                                      NUM_CHAN,
+                                                      NUM_STREAMS,
+                                                      NUM_COUPLED_STREAMS,
+                                                      mapping,
+                                                      &err);
     if (err<0) {
         fprintf(stderr, "Failed to create decoder: %s\n", opus_strerror(err));
         return EXIT_FAILURE;
@@ -159,7 +168,9 @@ int main(int argc, char *argv[])
     /* start up Port Audio 
      * input defaults to mono
      */
-    stream = startupPa(1, cb_data.channels, cb_data.samplerate, 
+    // stream = startupPa(1, cb_data.channels, cb_data.samplerate, 
+    //     FRAMES_PER_BUFFER, paCallback, &cb_data);
+    stream = startupPa(1, 2, cb_data.samplerate, 
         FRAMES_PER_BUFFER, paCallback, &cb_data);
 
     /* Initialize ncurses 
@@ -198,7 +209,7 @@ int main(int argc, char *argv[])
     }
 
     /* shut down Opus decoder */
-    opus_decoder_destroy(cb_data.decoder);
+    opus_multistream_decoder_destroy(cb_data.decoder);
 
     /* disconnect from server */
     send_server_msg('D', &cb_data);
@@ -351,6 +362,7 @@ static int paCallback(const void *inputBuffer, void *outputBuffer,
     CBdata *p = (CBdata *)userData;
     //float *input  = (float *)inputBuffer; //not used
     float *output = (float *)outputBuffer;
+    float output_full[NUM_CHAN * FRAME_SIZE];
     unsigned char rcbits[MAX_PACKET_SIZE];
     int nbBytes;
     int n;
@@ -421,10 +433,19 @@ static int paCallback(const void *inputBuffer, void *outputBuffer,
              so the decoder must always check the frame size returned. 
              */
             int frame_size;
-            if ( (frame_size = opus_decode_float(p->decoder, &rcbits[1], nbBytes, output, MAX_FRAME_SIZE, 0)) < 0) {
+            if ( (frame_size = opus_multistream_decode_float(p->decoder, &rcbits[1], nbBytes, output_full, MAX_FRAME_SIZE, 0)) < 0) {
                 fprintf(stderr, "decoder failed: %s\n", opus_strerror(frame_size));
                 exit(1);
             }
+
+        int k=0;
+        for (int i=0; i<framesPerBuffer; i++) {
+                output[k] = output_full[i * NUM_CHAN + 0]; // front left
+                k++;
+                output[k] = output_full[i * NUM_CHAN + 2]; // front right
+                k++;
+        }
+
             p->log.n++;
         }
     }
