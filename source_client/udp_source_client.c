@@ -38,8 +38,8 @@
 // Multi-channel setups
 // should work for 5.1 audio (6 channels)
 #define CHANNELS 6
-#define NUM_STREAMS 3
-#define NUM_COUPLED_STREAMS 3
+#define NUM_STREAMS 6
+#define NUM_COUPLED_STREAMS 0
 
 
 /* Callback structure */
@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     int portno;
     char *host;
     struct hostent *hp;
-    unsigned char mapping[] = {0,1,2,0,1,2};
+    unsigned char mapping[] = {0,1,2,3,4,5};
     // mapping from I/O channels to stream channels
     // stream channel 0: L: I/O channel 0, R: I/O channel 3
     // stream channel 1: L: I/O channel 1, R: I/O channel 4
