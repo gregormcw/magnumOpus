@@ -1,0 +1,2 @@
+cd Builds/LinuxMakefile
+make
