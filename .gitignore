@@ -1,7 +1,7 @@
 .DS_Store
 *.wav
 */build/*
-*/Builds/
+*/Builds/*
 IR/*
 
 
