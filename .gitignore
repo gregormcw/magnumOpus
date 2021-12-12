@@ -1,7 +1,11 @@
 .DS_Store
 *.wav
 */build/*
+<<<<<<< HEAD
 */Builds/
+=======
+*/Builds/*
+>>>>>>> ed1b0b707f9028c961f694f4ae60c7d4798e883a
 IR/*
 
 
