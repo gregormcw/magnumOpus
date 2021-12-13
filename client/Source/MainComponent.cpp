@@ -4,8 +4,10 @@ const int WIN_WIDTH = 1200;
 const int WIN_HEIGHT = 800;
 
 //==============================================================================
+
 MainComponent::MainComponent()
 {
+    
     setSize (WIN_WIDTH, WIN_HEIGHT);
     
     volSlider.setSliderStyle(juce::Slider::SliderStyle::LinearHorizontal);
@@ -15,56 +17,66 @@ MainComponent::MainComponent()
     volSlider.onValueChange = [this] { volume = volSlider.getValue(); };
     addAndMakeVisible(volSlider);
     
-    // ===================================================
-    // CHANGE LAMBDA FUNCTION CALLS - CURRENTLY ALL PLAY()
-    // ===================================================
+    // =========================================================
+    // == CHANGE LAMBDA FUNCTION CALLS - CURRENTLY ALL PLAY() ==
+    // =========================================================
     
+    // Set all initial toggle states to false
     buttonConnect.setToggleState(false, juce::NotificationType::dontSendNotification);
+    
+    // Call associated function on click
     buttonConnect.onClick = [this]() { play(); };
+    
+    // Add listener to button
     buttonConnect.addListener(this);
     
+    // Make button visible
+    addAndMakeVisible(buttonConnect);
+    
+    // Repeat for remaining buttons...
+    
+    // Audio format buttons
     buttonStereo.setToggleState(false, juce::NotificationType::dontSendNotification);
     buttonStereo.onClick = [this]() { play(); };
     buttonStereo.addListener(this);
+    addAndMakeVisible(buttonStereo);
     
     buttonBinaural.setToggleState(false, juce::NotificationType::dontSendNotification);
     buttonBinaural.onClick = [this]() { play(); };
     buttonBinaural.addListener(this);
+    addAndMakeVisible(buttonBinaural);
     
     button5_1.setToggleState(false, juce::NotificationType::dontSendNotification);
     button5_1.onClick = [this]() { play(); };
     button5_1.addListener(this);
-
-    addAndMakeVisible(buttonStereo);
     addAndMakeVisible(button5_1);
-    addAndMakeVisible(buttonBinaural);
     
+    // Playback-related buttons
     buttonPlay.setToggleState(false, juce::NotificationType::dontSendNotification);
     buttonPlay.onClick = [this]() { play(); };
     buttonPlay.addListener(this);
+    addAndMakeVisible(buttonPlay);
     
     buttonMute.setToggleState(false, juce::NotificationType::dontSendNotification);
     buttonMute.onClick = [this]() { mute(); };
     buttonMute.addListener(this);
+    addAndMakeVisible(buttonMute);
     
     buttonStop.setToggleState(false, juce::NotificationType::dontSendNotification);
     buttonStop.onClick = [this]() { stop(); };
     buttonStop.addListener(this);
-    
-    addAndMakeVisible(buttonConnect);
-    addAndMakeVisible(buttonPlay);
-    addAndMakeVisible(buttonMute);
     addAndMakeVisible(buttonStop);
     
 }
+
+// ===========================================================
+// == UPDATE BELOW FUNCTIONS BELOW AS NECESSARY FOR BACKEND ==
+// ===========================================================
 
 void MainComponent::play() {
     
     if (playState == PlayState::Stop) {
         playState = PlayState::Play;
-        
-//        edit.getTransport().play(false);
-//        juce::Timer::startTimer(100);
         
     }
 }
@@ -85,26 +97,39 @@ void MainComponent::stop() {
     }
 }
 
+// ====================================
+// == END OF FUNCTIONS TO BE UPDATED ==
+// ====================================
+
+// ===========================================================
+// == FUNCTION CONNECTING BUTTON CLICKS WITH AUDIO CALLBACK ==
+// ===========================================================
 void MainComponent::buttonClicked(juce::Button* button) {
     
+    // If connect clicked, change button color and state
     if (button == &buttonConnect) {
+        
         if (!isConnected) {
+            
+            // ============================================================
+            // == REPLACE WITH VALID SERVER ADDRESS AND/OR FUNCTION CALL ==
+            // ============================================================
+            std::cout << "Connecting to server: " << serverAdd << std::endl;
             buttonConnect.setColour(0x1000100, juce::Colours::orange);
         }
         else {
+            std::cout << "Disconnecting from server: " << serverAdd << std::endl;
             buttonConnect.setColour(0x1000100, juce::Colours::black);
         }
+        
         isConnected = !isConnected;
     }
     
+    // Set audio format and button color via button press
     if (button == &buttonStereo) {
         
+        // 0 = Stereo
         playbackFormat = 0;
-//        std::cout << "Format: Stereo" << std::endl;
-        
-        isStereo = true;
-        isBinaural = false;
-        is5_1 = false;
         
         buttonStereo.setColour(0x1000100, juce::Colours::orange);
         buttonBinaural.setColour(0x1000100, juce::Colours::black);
@@ -113,12 +138,8 @@ void MainComponent::buttonClicked(juce::Button* button) {
     
     if (button == &buttonBinaural) {
         
+        // 1 = Binaural
         playbackFormat = 1;
-//        std::cout << "Format: Binaural" << std::endl;
-        
-        isStereo = false;
-        isBinaural = true;
-        is5_1 = false;
         
         buttonBinaural.setColour(0x1000100, juce::Colours::orange);
         buttonStereo.setColour(0x1000100, juce::Colours::black);
@@ -127,12 +148,8 @@ void MainComponent::buttonClicked(juce::Button* button) {
     
     if (button == &button5_1) {
         
+        // 2 = 5.1
         playbackFormat = 2;
-//        std::cout << "Format: 5.1" << std::endl;
-        
-        isStereo = false;
-        isBinaural = false;
-        is5_1 = true;
         
         button5_1.setColour(0x1000100, juce::Colours::orange);
         buttonBinaural.setColour(0x1000100, juce::Colours::black);
@@ -141,6 +158,7 @@ void MainComponent::buttonClicked(juce::Button* button) {
     
     if (button == &buttonPlay) {
         
+        // Change playback state
         isPlaying = !isPlaying;
         
         buttonPlay.setColour(0x1000100, juce::Colours::limegreen);
@@ -150,7 +168,9 @@ void MainComponent::buttonClicked(juce::Button* button) {
         buttonStop.colourChanged();
     }
     
+    // If mute button clicked, change state and button color
     if (button == &buttonMute) {
+        
         if (!isMuted) {
             buttonMute.setColour(0x1000100, juce::Colours::indianred);
             buttonMute.setColour(0x1000102, juce::Colours::whitesmoke);
@@ -159,10 +179,13 @@ void MainComponent::buttonClicked(juce::Button* button) {
             buttonMute.setColour(0x1000100, juce::Colours::whitesmoke);
             buttonMute.setColour(0x1000102, juce::Colours::black);
         }
+        
         isMuted = !isMuted;
         buttonMute.colourChanged();
+        
     }
     
+    // If stop button clicked, set isPlaying to false and change button color
     if (button == &buttonStop) {
         
         isPlaying = false;
@@ -172,13 +195,9 @@ void MainComponent::buttonClicked(juce::Button* button) {
         buttonPlay.setColour(0x1000100, juce::Colours::whitesmoke);
         buttonStop.colourChanged();
         buttonPlay.colourChanged();
+        
     }
 }
-
-//void sliderValueChanged(Slider* slider) override {
-//    if (slider == &volSlider)
-//        volSlider.setValue(volSlider)
-//}
 
 MainComponent::~MainComponent()
 {
@@ -197,12 +216,8 @@ void MainComponent::paint (juce::Graphics& g)
     g.drawFittedText("Opus", 64+24, 95, getWidth(), 60, juce::Justification::centredTop, 1);
     g.setColour (juce::Colours::white);
     g.drawFittedText("Magnum", -100+72, 25, getWidth(), 60, juce::Justification::centredTop, 1);
-    g.setFont (18.0f);
-//    g.drawFittedText("Binaural Surround", 0, 210, getWidth(), 60, juce::Justification::centredTop, 1);
-//    g.drawFittedText("Binaural Surround", -120, 95+65, getWidth(), 60, juce::Justification::centredTop, 1);
     
     g.setFont(22.0f);
-    
     int volTextWidth = 160;
     g.drawFittedText("VOLUME", getWidth()/2 - volTextWidth/2, getHeight()/2 + 254, volTextWidth, 20, juce::Justification::centred, 1);
     g.setFont(8.0f);
@@ -238,8 +253,6 @@ void MainComponent::resized()
     buttonPlay.setColour(0x1000102, juce::Colours::black);
     buttonStop.setColour(0x1000100, juce::Colours::whitesmoke);
     buttonStop.setColour(0x1000102, juce::Colours::black);
-    
-//    buttonMono.setState(juce::Button::buttonDown);
     
     buttonMute.setBounds(getWidth()/2 - 1.5*ctlButtonWidth - 1.36*border, getHeight()/2 + 1.24*ctlButtonHeight,
                          ctlButtonWidth, ctlButtonHeight);

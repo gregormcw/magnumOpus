@@ -9,10 +9,6 @@
 */
 class MainComponent  :  public juce::Component,
                         public juce::Button::Listener
-//                        public juce::Slider::Listener
-//                        public juce::Slider::Listener
-//                        public juce::Timer,
-//                        public juce::Button::Listener
 {
 public:
     //==============================================================================
@@ -23,42 +19,38 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
     
-    int volume = 0.7;
-    
     void play();
     void stop();
     void mute();
-//    void timerCallback() override;
     void buttonClicked(juce::Button* button) override;
-    
-//
-//    void sliderValueChanged(juce::Slider* slider) override;
 
 private:
     //==============================================================================
     // Your private member variables go here...
     
+    // Enum for button-click lambda functions
     enum class PlayState {
         Play,
         Stop,
         Mute
     };
     
+    // Instance of PlayState (DEVELOP FURTHER)
     PlayState playState {PlayState::Stop};
     
+    // Atomic int for audio format
+    // 0 = Stereo, 1 = Binaural, 2 = 5.1
     juce::Atomic<int> playbackFormat = 0;
+    
+    // Button and callback flags
     bool isConnected = false;
-    
-    bool isStereo = false;
-    bool isBinaural = false;
-    bool is5_1 = false;
-    
-//    juce::Atomic<bool> isStereo = true;
-//    juce::Atomic<bool> isBinaural = false;
-//    juce::Atomic<bool> is5_1 = false;
-    
     bool isPlaying = false;
     bool isMuted = false;
+    
+    // Variable determined by volSlider
+    float volume = 0.7;
+    
+    std::string serverAdd = "serverAddHere:Port";
     
     juce::TextButton buttonConnect{"CONNECT"};
     juce::TextButton buttonPlay{"PLAY"};
