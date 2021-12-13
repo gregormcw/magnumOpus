@@ -95,7 +95,7 @@ void UDPAudioProcessor::prepareToPlay(int samplesPerBlockExpected, double sample
         /* initialize FIFO */
         // initializeFifo();
         this->fill_fifo_buffer();
-        this->startThread(10);
+        this->startThread(0);
 
         prepared_to_play = 1;
     }else{}
@@ -222,15 +222,22 @@ void UDPAudioProcessor::getNextAudioBlock(const juce::AudioSourceChannelInfo &bu
     auto activeOutputChannels = device->getActiveOutputChannels();
     auto max_output_channels = activeOutputChannels.getHighestBit() + 1;
     int buffer_length = bufferToFill.numSamples*NUM_CHAN;
-    juce::Array<float> output;
-    output.ensureStorageAllocated(buffer_length);
-    juce::FloatVectorOperations::clear(output.getRawDataPointer(), buffer_length);
+    float output[buffer_length];
+    memset(output, 0, sizeof(output));
+    // output.ensureStorageAllocated(buffer_length);
+    // juce::FloatVectorOperations::clear(output.getRawDataPointer(), buffer_length);
 
-    raw_audio_fifo.readFrom(output.getRawDataPointer(), bufferToFill.numSamples*NUM_CHAN);
-
+    // if (fifo_mutex.tryEnter()){
+        raw_audio_fifo.readFrom(output, buffer_length);
+        // fifo_mutex.exit();
+    // }
     // printf("output buffer len: %d\n", output.size());
+    // printf("output buffer capacity: %d\n", buffer_length);
+    // printf("FIFO len: %d\n", raw_audio_fifo.data.size());
+    // printf("output channels: %d\n", max_output_channels);
 
-    if (raw_audio_fifo.getNumReady() > raw_audio_fifo.low + bufferToFill.numSamples*NUM_CHAN) {
+
+    if (raw_audio_fifo.getNumReady() > raw_audio_fifo.low) {
         switch(this->playback_mode){
             case PBMODE_MONO:
             {
@@ -253,8 +260,8 @@ void UDPAudioProcessor::getNextAudioBlock(const juce::AudioSourceChannelInfo &bu
             }
             case PBMODE_STEREO:
             {
-                auto* outLeftBuffer = bufferToFill.buffer->getWritePointer (0, bufferToFill.startSample);
-                auto* outRightBuffer = bufferToFill.buffer->getWritePointer (1, bufferToFill.startSample);
+                auto* outLeftBuffer = bufferToFill.buffer->getWritePointer(0, bufferToFill.startSample);
+                auto* outRightBuffer = bufferToFill.buffer->getWritePointer(1, bufferToFill.startSample);
                 for (int i=0; i<bufferToFill.numSamples; i++){
                     outLeftBuffer[i] = 0.374107 * output[i*6 + 1] + \
                                     0.529067 * output[i*6 + 0] + \
@@ -277,9 +284,9 @@ void UDPAudioProcessor::getNextAudioBlock(const juce::AudioSourceChannelInfo &bu
             }
             case PBMODE_5_1:
             {
-                for (auto channel = 0; channel < max_output_channels; ++channel)
+                for (auto channel = 0; channel<6; ++channel)
                 {
-                    auto* outBuffer = bufferToFill.buffer->getWritePointer (channel, bufferToFill.startSample);
+                    auto* outBuffer = bufferToFill.buffer->getWritePointer(channel, bufferToFill.startSample);
                     for (int i=0; i<bufferToFill.numSamples; i++){
                         outBuffer[i] = output[i*6+channel];
                     }
@@ -339,7 +346,9 @@ int UDPAudioProcessor::decode_and_write_to_fifo(unsigned char* rcbits, int n)
     }
     // printf("Decoded %d frames\n", frame_size);
 
-    raw_audio_fifo.writeTo(output_full, frame_size*NUM_CHAN);
-
+    // if (fifo_mutex.tryEnter()){
+        raw_audio_fifo.writeTo(output_full, frame_size*NUM_CHAN);
+        // fifo_mutex.exit();
+    // }
     return frame_size;
 }

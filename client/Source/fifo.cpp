@@ -12,7 +12,7 @@ public:
 
     int capacity =  10240; // 512 * 20
     int low = 1024; // 512 * 2
-    int high =  9261; // 512 * 18
+    int high =  5120; // 512 * 12
 
     FIFO(){
         lockFreeFifo = std::make_unique<juce::AbstractFifo>(capacity);
@@ -34,7 +34,7 @@ public:
         }
         capacity =  newSize * 20;
         low = newSize * 2;
-        high =  newSize * 18;
+        high =  newSize * 10;
     }
 
     void writeTo(const float* writeData, int numToWrite)
@@ -68,24 +68,24 @@ public:
 
     // }
 
-    int writeToArray(juce::Array<float>* dest, int destPos)
-    {
-        while (getNumReady() > dest->size()){
-            lockFreeFifo->finishedRead(getNumReady() - dest->size());
-        }
+    // int writeToArray(juce::Array<float>* dest, int destPos)
+    // {
+    //     while (getNumReady() > dest->size()){
+    //         lockFreeFifo->finishedRead(getNumReady() - dest->size());
+    //     }
 
-        const int numToAppend = getNumReady();
+    //     const int numToAppend = getNumReady();
 
-        if (destPos + numToAppend < dest->size()){
-            readFrom(&dest->getRawDataPointer()[destPos], numToAppend);
-        }
-        else{
-            int toTheEnd = dest->size() - destPos;
-            readFrom(&dest->getRawDataPointer()[destPos], toTheEnd);
-            readFrom(&dest->getRawDataPointer()[0], numToAppend - toTheEnd);
-        }
-        return numToAppend;
-    }
+    //     if (destPos + numToAppend < dest->size()){
+    //         readFrom(&dest->getRawDataPointer()[destPos], numToAppend);
+    //     }
+    //     else{
+    //         int toTheEnd = dest->size() - destPos;
+    //         readFrom(&dest->getRawDataPointer()[destPos], toTheEnd);
+    //         readFrom(&dest->getRawDataPointer()[0], numToAppend - toTheEnd);
+    //     }
+    //     return numToAppend;
+    // }
 
     int getNumReady()
     {

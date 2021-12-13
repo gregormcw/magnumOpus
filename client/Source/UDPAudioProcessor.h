@@ -111,7 +111,7 @@ private:
     // void prepare_output_5_1(float *input_buffer, const juce::AudioSourceChannelInfo &bufferToFill, unsigned long num_samples, int max_output_channels);
 
     void run() override;
-    // juce::SpinLock fifo_mutex;
+    juce::SpinLock fifo_mutex;
 
 
     // flags for function in preparetoplay
@@ -121,5 +121,5 @@ private:
     // saves decoded float samples
     FIFO raw_audio_fifo;
 
-    enum PlaybackMode playback_mode = PBMODE_MONO;
+    enum PlaybackMode playback_mode = PBMODE_5_1;
 };
