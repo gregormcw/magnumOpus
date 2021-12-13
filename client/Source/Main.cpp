@@ -8,13 +8,14 @@
 
 #include <JuceHeader.h>
 #include "MainComponent.h"
+#include "UDPAudioProcessor.h"
 
 //==============================================================================
 class MagnumOpusApplication  : public juce::JUCEApplication
 {
 public:
     //==============================================================================
-    MagnumOpusApplication() {}
+    MagnumOpusApplication(){}
 
     const juce::String getApplicationName() override       { return ProjectInfo::projectName; }
     const juce::String getApplicationVersion() override    { return ProjectInfo::versionString; }
@@ -25,7 +26,10 @@ public:
     {
         // This method is where you should put your application's initialisation code..
 
-        mainWindow.reset (new MainWindow (getApplicationName()));
+        mainWindow.reset (new MainWindow(getApplicationName()));
+        // udp_audio_processor();
+        // udp_audio_processor.prepareToPlay(FRAME_SIZE*NUM_CHAN, SAMPLE_RATE);
+
     }
 
     void shutdown() override
@@ -33,6 +37,7 @@ public:
         // Add your application's shutdown code here..
 
         mainWindow = nullptr; // (deletes our window)
+        udp_audio_processor.releaseResources();
     }
 
     //==============================================================================
@@ -98,6 +103,7 @@ public:
 
 private:
     std::unique_ptr<MainWindow> mainWindow;
+    UDPAudioProcessor udp_audio_processor;
 };
 
 //==============================================================================

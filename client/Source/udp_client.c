@@ -18,7 +18,7 @@
 #include <string.h>     /* memset() */
 #include <ctype.h>      /* tolower() */
 #include <stdatomic.h>  /* atomic read/write */
-#include <sndfile.h>    /* libsndfile */
+// #include <sndfile.h>    /* libsndfile */
 #include <portaudio.h>  /* portaudio */
 #include <ncurses.h>    /* ncurses */
 #include <opus.h>       /* opus */
