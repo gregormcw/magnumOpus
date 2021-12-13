@@ -50,8 +50,16 @@ typedef struct {
     int fifo_len;
 } Log;
 
+enum PlaybackMode {
+    PBMODE_MONO = 0,
+    PBMODE_STEREO,
+    PBMODE_BINAURAL,
+    PBMODE_5_1
+};
+
 /* Callback structure */
 typedef struct {
+    enum PlaybackMode playback_mode;
     int samplerate;
     int channels;
     int frames;
@@ -62,12 +70,22 @@ typedef struct {
     struct sockaddr_in server;
     struct sockaddr_in from;
     Log log;
+
 } CBdata;
+
+
+
 
 /* local function prototypes */
 void send_server_msg(char c, CBdata *p);
 void fill_fifo_buffer(CBdata *p);
 void *rcvFrmServer( void *id);
+int prepare_output_mono(float *input_buffer, float *output_buffer, unsigned long framesPerBuffer);
+int prepare_output_stereo(float *input_buffer, float *output_buffer, unsigned long framesPerBuffer);
+int prepare_output_binaural(float *input_buffer, float *output_buffer, unsigned long framesPerBuffer);
+int prepare_output_5_1(float *input_buffer, float *output_buffer, unsigned long framesPerBuffer);
+
+
 
 /* Callback function protoype */
 static int paCallback( const void *inputBuffer, void *outputBuffer,
@@ -93,6 +111,7 @@ int main(int argc, char *argv[])
     /* POSIX threads */
     int rc1, mrc1;
     pthread_t thread1;
+    enum PlaybackMode playback_mode = PBMODE_5_1;
 
     if (argc < 3) {
         printf("Usage: %s host_name port_num\n", argv[0]);
@@ -105,6 +124,7 @@ int main(int argc, char *argv[])
     cb_data.samplerate = SAMPLE_RATE;
     cb_data.channels = NUM_CHAN;
     cb_data.frames = FRAMES_PER_BUFFER;
+    cb_data.playback_mode = playback_mode;
 
     /* initialize log */
     cb_data.log.n = 0;
@@ -150,7 +170,7 @@ int main(int argc, char *argv[])
 
     /* fill jitter buffer FIFO to target level */
     fill_fifo_buffer(&cb_data);
-//sprintf(cb_data.log.msg, "Done filling FIFO");
+    //sprintf(cb_data.log.msg, "Done filling FIFO");
 
     /* start thread
      * receives UDP packets from server and writes them to FIFO
@@ -170,8 +190,14 @@ int main(int argc, char *argv[])
      */
     // stream = startupPa(1, cb_data.channels, cb_data.samplerate, 
     //     FRAMES_PER_BUFFER, paCallback, &cb_data);
-    stream = startupPa(1, 2, cb_data.samplerate, 
-        FRAMES_PER_BUFFER, paCallback, &cb_data);
+    int output_channels;
+    if (playback_mode == PBMODE_MONO)
+        output_channels = 1;
+    if ((playback_mode == PBMODE_BINAURAL) || (playback_mode == PBMODE_STEREO))
+        output_channels = 2;
+    if (playback_mode == PBMODE_5_1)
+        output_channels = 6;
+    stream = startupPa(1, output_channels, cb_data.samplerate, FRAMES_PER_BUFFER, paCallback, &cb_data);
 
     /* Initialize ncurses 
      * to permit interactive character input 
@@ -432,20 +458,27 @@ static int paCallback(const void *inputBuffer, void *outputBuffer,
              However, that may not be the case for all encoders, 
              so the decoder must always check the frame size returned. 
              */
+            memset(output_full, 0, sizeof(output_full));
             int frame_size;
             if ( (frame_size = opus_multistream_decode_float(p->decoder, &rcbits[1], nbBytes, output_full, MAX_FRAME_SIZE, 0)) < 0) {
                 fprintf(stderr, "decoder failed: %s\n", opus_strerror(frame_size));
                 exit(1);
             }
 
-        int k=0;
-        for (int i=0; i<framesPerBuffer; i++) {
-                output[k] = output_full[i * NUM_CHAN + 0]; // front left
-                k++;
-                output[k] = output_full[i * NUM_CHAN + 2]; // front right
-                k++;
-        }
-
+            switch(p->playback_mode){
+                case PBMODE_MONO:
+                    prepare_output_mono(output_full, output, framesPerBuffer);
+                    break;
+                case PBMODE_STEREO:
+                    prepare_output_stereo(output_full, output, framesPerBuffer);
+                    break;
+                case PBMODE_BINAURAL:
+                    prepare_output_binaural(output_full, output, framesPerBuffer);
+                    break;
+                case PBMODE_5_1:
+                    prepare_output_5_1(output_full, output, framesPerBuffer);
+                    break;
+            }
             p->log.n++;
         }
     }
@@ -460,5 +493,79 @@ static int paCallback(const void *inputBuffer, void *outputBuffer,
         }
     }
 
+    return 0;
+}
+
+/* prepare the output stream
+ * input is 5.1 buffer, output is a mono buffer
+ */
+int prepare_output_mono(float *input_buffer, float *output_buffer, unsigned long framesPerBuffer)
+{
+    for (int i=0; i<framesPerBuffer; i++){
+        output_buffer[i] = 0.374107 * input_buffer[i*6 + 1] + \
+                           0.529067 * input_buffer[i*6 + 0] + \
+                           0.458186 * input_buffer[i*6 + 3] + \
+                           0.264534 * input_buffer[i*6 + 4] + \
+                           0.374107 * input_buffer[i*6 + 5] + \
+                           0.374107 * input_buffer[i*6 + 1] + \
+                           0.529067 * input_buffer[i*6 + 2] + \
+                           0.458186 * input_buffer[i*6 + 4] + \
+                           0.264534 * input_buffer[i*6 + 3] + \
+                           0.374107 * input_buffer[i*6 + 5];
+        output_buffer[i] /= 2.0;
+    }
+    return 0;
+}
+
+/* prepare the output stream
+ * input is 5.1 buffer, output is a stereo downmixed buffer
+ * using ffmpeg setup of downmixing: (https://superuser.com/questions/852400/properly-downmix-5-1-to-stereo-using-ffmpeg)
+ * L = 0.374107*FC + 0.529067*FL + 0.458186*BL + 0.264534*BR + 0.374107*LFE
+ * R = 0.374107*FC + 0.529067*FR + 0.458186*BR + 0.264534*BL + 0.374107*LFE
+ * input channel order: front left, center, front right, rear left, rear right, LFE
+ */
+int prepare_output_stereo(float *input_buffer, float *output_buffer, unsigned long framesPerBuffer)
+{
+    int k=0;
+    for (int i=0; i<framesPerBuffer; i++){
+        // left
+        output_buffer[k] = 0.374107 * input_buffer[i*6 + 1] + \
+                           0.529067 * input_buffer[i*6 + 0] + \
+                           0.458186 * input_buffer[i*6 + 3] + \
+                           0.264534 * input_buffer[i*6 + 4] + \
+                           0.374107 * input_buffer[i*6 + 5];
+        k++;
+        // right
+        output_buffer[k] = 0.374107 * input_buffer[i*6 + 1] + \
+                           0.529067 * input_buffer[i*6 + 2] + \
+                           0.458186 * input_buffer[i*6 + 4] + \
+                           0.264534 * input_buffer[i*6 + 3] + \
+                           0.374107 * input_buffer[i*6 + 5];
+        k++;
+    }
+    return 0;
+}
+
+int prepare_output_binaural(float *input_buffer, float *output_buffer, unsigned long framesPerBuffer)
+{
+    int k=0;
+    for (int i=0; i<framesPerBuffer; i++) {
+        for (int j=0; j<2; j++) {
+            output_buffer[k] = 0.0;
+            k++;
+        }
+    }
+    return 0;
+}
+
+// Prepare the output stream
+// simply copy-paste the buffers
+int prepare_output_5_1(float *input_buffer, float *output_buffer, unsigned long framesPerBuffer)
+{
+    for (int i=0; i<framesPerBuffer; i++){
+        for (int j=0; j<6; j++){
+            output_buffer[i*6+j] = input_buffer[i*6+j];
+        }
+    }
     return 0;
 }

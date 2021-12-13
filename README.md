@@ -10,5 +10,5 @@ Binaural surround spatialization app for streaming audio
 - make real-time convolution to create downmixed binaural output
 - connect the GUI with callback functions
 - Modify UI design:
-  - switch between 5.1, binaural and stereo
+  - switch between mono, stereo, binaural and 5.1
   - add host and port input, and a connect button
