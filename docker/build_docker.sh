@@ -1,1 +1,1 @@
-docker build --no-cache -t ast .
+docker build --rm -t ast .

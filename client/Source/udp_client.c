@@ -18,7 +18,7 @@
 #include <string.h>     /* memset() */
 #include <ctype.h>      /* tolower() */
 #include <stdatomic.h>  /* atomic read/write */
-#include <sndfile.h>    /* libsndfile */
+// #include <sndfile.h>    /* libsndfile */
 #include <portaudio.h>  /* portaudio */
 #include <ncurses.h>    /* ncurses */
 #include <opus.h>       /* opus */
@@ -386,51 +386,13 @@ static int paCallback(const void *inputBuffer, void *outputBuffer,
 {
     /* Cast data passed through stream to our structure. */
     CBdata *p = (CBdata *)userData;
-    //float *input  = (float *)inputBuffer; //not used
     float *output = (float *)outputBuffer;
     float output_full[NUM_CHAN * FRAME_SIZE];
     unsigned char rcbits[MAX_PACKET_SIZE];
     int nbBytes;
     int n;
     int mrc1;
-    //unsigned int slen = sizeof(struct sockaddr_in);
-    // /* socket timeout */
-    // struct timeval tv;
-    // tv.tv_sec = 0;
-    // tv.tv_usec = 5*1000; //5 ms
 
-    // /* Get message from server with timeout */
-    // setsockopt(p->sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-    // n = recvfrom(p->sock, rcbits, MAX_PACKET_SIZE, 0,
-    //     (struct sockaddr*)&p->from, &slen);
-    // if (n < -1) {
-    //     perror("recvfrom client");
-    //     exit(0);
-    // }
-    // else if (n == -1) {
-    //     /* timeout from waiting -- no UDP packet */
-    //     p->log.timeouts++;
-    //     nbBytes = -1; 
-    // }
-    // else {
-    //     /* received packet */
-    //     p->log.pkt_bytes = n;
-    //     p->log.n++;
-
-    //     /* write to jitter buffer FIFO */
-    //     writeToFifo(rcbits, n);
-    //     p->log.write_seq_num = rcbits[0];
-    // }
-
-    /* if not sequential seq num, then treat as missing
-     * do not decode, and just zero output buffer 
-     */
-//readFrmFifo takes seq num as arg?
-
-    /* read from jitter buffer FIFO 
-     * if FIFO level is too low, do not read until rcvFrmServer() thread
-     * fills FIFO above low watermark
-     */
     if (p->log.fifo_len > FIFO_LO) {
 
         /* lock mutex */

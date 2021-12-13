@@ -1,9 +1,11 @@
 .DS_Store
 *.wav
 */build/*
-*/Builds/*
+*/Builds/CLI/*
+*/Builds/LinuxMakefile/*
+!*/Builds/LinuxMakefile/Makefile
 IR/*
-
+docker/resources/
 
 ############################################
 # Prerequisites
