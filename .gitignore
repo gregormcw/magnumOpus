@@ -7,6 +7,8 @@
 IR/*
 docker/resources/
 
+.vscode/
+
 ############################################
 # Prerequisites
 *.d

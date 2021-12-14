@@ -7,16 +7,51 @@ Binaural surround spatialization app for streaming audio
 <img width="1200" alt="magnumOpus_ss" src="https://user-images.githubusercontent.com/62677644/144144375-5668028c-d47a-4773-ba65-f7e465806aa8.png">
 
 
-## TODOs
+## Run and Compile
 
-- make real-time convolution to create downmixed binaural output
-- connect the GUI with callback functions
-- Modify UI design:
-  - switch between mono, stereo, binaural and 5.1
-  - add host and port input, and a connect button
+!!! Currently only compiles and runs on linux machine!
 
-## How To Run
+* build dockerfile
+```bash
+cd docker
+bash build_docker.sh
+```
 
+* compile source client, server, and cli version of client
+```bash
+cd test
+bash build_test.sh
+```
+
+* compile JUCE client
+```bash
+cd client
+bash build_juce_version.sh
+```
+
+* run source client
+```bash
+cd test
+bash start_source_client.sh
+```
+
+* run server
+```bash
+cd server/build
+./udp server
+```
+
+* run cli client
+```bash
+cd test
+bash start_client.sh
+```
+
+* run JUCE client
+```bash
+cd client/Builds/LinuxMakeFile/build
+./MagnumOpus
+```
 
 ## Backend Structure
 
