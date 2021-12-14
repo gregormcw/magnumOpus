@@ -95,3 +95,69 @@ So we made these improvements:
 3. Instead of a mutex lock, design the FIFO buffer class as a ring buffer with separate read and write pointers.
 
 The FIFO buffer class is in `client/Source/fifo.cpp`. We used the `juce::AbstractFifo` class to help create the read/write function, and used `juce::FloatVectorOperations::copy()` to read/write data from FIFO to other buffers.
+
+## Frontend design
+### JUCE Client GUI
+
+The client GUI was developed using JUCE, due to this framework's utility for both audio applications and frontend design. It is designed with simplicity in mind, and thus buttons and sliders were kept to a minimum.
+
+The GUI consists of the following key components:
+
+- `buttonStereo`: `juce::TextButton` object that switches output format to stereo
+- `buttonBinaural`: `juce::TextButton` object that switches output format to binaural
+- `buttonStereo`: `juce::TextButton` object that switches output format to Dolby 5.1
+- `buttonPlay`: `juce::TextButton` object that initiates playback, or resumes playback mute toggled
+- `buttonMute`: `juce::TextButton` object that mutes all audio output
+- `buttonConnect`: `juce::TextButton` object that establishes connection with the server
+- `volSlider`: `juce::Slider` object that allows control of output volume
+
+Selection of audio format was provided via three instances of the `juce::TextButton` class, with `buttonStereo` for stereo downmix, `buttonBinaural` for binaural output, and `button5_1` for play back in Dolby 5.1 Surround. When one of these three buttons is selected, its related boolean variable is set to true and all others set to false.
+
+The interoperation off the playback control buttons, `buttonPlay` and `buttonMute`, follow a similar logic, whereby if one is `true` the other is always `false`. This specific design consideration was made due to the nature of the incoming UDP packets, which are transmitted regardless of any play/stop states. As a result, it was decided that `buttonPlay` and `buttonMute` would more intuitively interact in this play/stop manner.
+
+All of the GUI client buttons were positioned, sized, and formatted using member functions and variables of the `juce::TextButton` class, in a manner similar to the example below:
+
+```C++
+buttonPlay.setBounds(getWidth()/2 - ctlButtonWidth/2, getHeight()/2 + 1.24*ctlButtonHeight,
+                          ctlButtonWidth, ctlButtonHeight);
+```
+
+All buttons except `buttonStereo` are initialized as `false`, with the `juce::TextButton` `.onClick` method used to connect button clicks to their respective callback functions via lambda expressions:
+
+```C++
+buttonPlay.setToggleState(false, juce::NotificationType::dontSendNotification);
+buttonPlay.onClick = [this]() { play(); };
+buttonPlay.addListener(this);
+addAndMakeVisible(buttonPlay);
+```
+```C++
+void MainComponent::play() {
+    
+    if (playState == PlayState::Mute) {
+        playState = PlayState::Play;
+    }
+}
+```
+
+Each of the playback buttons, in particular, is linked to a custom enum `PlayState` class created in `MainComponent.h`, with the play state altered depending on the selected button's logic:
+
+```
+enum class PlayState {
+        Play,
+        Stop,
+        Mute
+};
+```
+
+`volSlider` - a `juce::Slider` instance that linearly changes the output volume - follows a similar logic, though its functionality can be implemented in a more concise manner:
+
+```C++
+volSlider.setSliderStyle(juce::Slider::SliderStyle::LinearHorizontal);
+volSlider.setRange(0.0f, 1.0f, 0.02f);
+volSlider.setValue(0.7f);
+volSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 20);
+volSlider.onValueChange = [this] { volume = volSlider.getValue(); };
+addAndMakeVisible(volSlider);
+```
+
+During the frontend development and debugging phases, placeholder variables were created for the above frontend components in order to ensure playback states were correctly handled. Once the visual and functional aspects of the GUI were debugged, this component was connected to the backend, and the placeholder variables replaced with those in the `udp_client.c` code. The integration of frontend and backend was relatively seamless, due largely to the backend component's standalone functionality.
