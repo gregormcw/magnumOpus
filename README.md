@@ -125,9 +125,9 @@ All buttons except `buttonStereo` are initialized as `false`, with the `juce::Te
 
 ```C++
 buttonPlay.setToggleState(false, juce::NotificationType::dontSendNotification);
-    buttonPlay.onClick = [this]() { play(); };
-    buttonPlay.addListener(this);
-    addAndMakeVisible(buttonPlay);
+buttonPlay.onClick = [this]() { play(); };
+buttonPlay.addListener(this);
+addAndMakeVisible(buttonPlay);
 ```
 ```C++
 void MainComponent::play() {
@@ -145,7 +145,7 @@ enum class PlayState {
         Play,
         Stop,
         Mute
-    };
+};
 ```
 
 `volSlider` - a `juce::Slider` instance that linearly changes the output volume - follows a similar logic, though its functionality can be implemented in a more concise manner:
