@@ -96,6 +96,7 @@ So we made these improvements:
 
 The FIFO buffer class is in `client/Source/fifo.cpp`. We used the `juce::AbstractFifo` class to help create the read/write function, and used `juce::FloatVectorOperations::copy()` to read/write data from FIFO to other buffers.
 
+## Frontend design
 ### JUCE Client GUI
 
 The client GUI was developed using JUCE, due to this framework's utility for both audio applications and frontend design. It is designed with simplicity in mind, and thus buttons and sliders were kept to a minimum.
