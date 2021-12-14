@@ -1,7 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-// #include <opus_multistream.h>
+#include "UDPAudioProcessor.h"
 
 
 //==============================================================================
@@ -26,6 +26,10 @@ public:
     void mute();
     void buttonClicked(juce::Button* button) override;
 
+    UDPAudioProcessor udp_audio_processor;
+
+    // void restartAudioPlayback(playbackFormat);
+
 private:
     //==============================================================================
     // Your private member variables go here...
@@ -42,7 +46,9 @@ private:
     
     // Atomic int for audio format
     // 0 = Stereo, 1 = Binaural, 2 = 5.1
-    juce::Atomic<int> playbackFormat = 0;
+    // juce::Atomic<int> playbackFormat = 0;
+    enum PlaybackMode playbackFormat = PBMODE_5_1;
+
     
     // Button and callback flags
     bool isConnected = false;
@@ -50,18 +56,20 @@ private:
     bool isMuted = false;
     
     // Variable determined by volSlider
-    float volume = 0.7;
+    // float volume = 0.7;
     
-    std::string serverAdd = "serverAddHere:Port";
+    // std::string serverAdd = "serverAddHere:Port";
+    char* host = (char*)"127.0.0.1";
+    int portno = 5002;
     
     juce::TextButton buttonConnect{"CONNECT"};
     juce::TextButton buttonPlay{"PLAY"};
-    juce::TextButton buttonMute{"MUTE"};
+    // juce::TextButton buttonMute{"MUTE"};
     juce::TextButton buttonStop{"STOP"};
     juce::Slider volSlider;
     
     juce::TextButton buttonStereo{"STEREO"};
-    juce::TextButton buttonBinaural{"BINAURAL"};
+    juce::TextButton buttonMono{"MONO"};
     juce::TextButton button5_1{"5.1"};
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)

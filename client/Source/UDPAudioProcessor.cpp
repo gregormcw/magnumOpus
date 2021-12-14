@@ -30,11 +30,11 @@ UDPAudioProcessor::UDPAudioProcessor(): juce::Thread("UDP client thread")
     // this->cb_data.log.fifo_len = 0;
 
     int output_channels;
-    if (playback_mode == PBMODE_MONO)
-        output_channels = 1;
-    if ((playback_mode == PBMODE_BINAURAL) || (playback_mode == PBMODE_STEREO))
-        output_channels = 2;
-    if (playback_mode == PBMODE_5_1)
+    // if (playback_mode == PBMODE_MONO)
+    //     output_channels = 1;
+    // if ((playback_mode == PBMODE_BINAURAL) || (playback_mode == PBMODE_STEREO))
+    //     output_channels = 2;
+    // if (playback_mode == PBMODE_5_1)
         output_channels = 6;
 
     juce::String audioError;
@@ -73,29 +73,7 @@ void UDPAudioProcessor::prepareToPlay(int samplesPerBlockExpected, double sample
             exit(EXIT_FAILURE);
         }
 
-        /* Create socket */
-        if ( (this->cb_data.sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-            perror("ERROR, cannot open socket");
-            exit(EXIT_FAILURE);
-        }
-        /* load host (server) data structure */
-        this->cb_data.server.sin_family = AF_INET;
-        if ( (this->hp = gethostbyname(this->host)) == 0) {
-            perror("ERROR, no such host");
-            exit(EXIT_FAILURE);
-        }
-        /* load host (server) port (for client) */
-        bcopy((char *)hp->h_addr, 
-            (char *)&cb_data.server.sin_addr, hp->h_length);
-        /* convert short from host to network byte order */
-        this->cb_data.server.sin_port = htons(this->portno);
-        /* connect to server */
-        send_server_msg('C');
-        // printf("host: %s, port: %d\n", , this->portno);
-        /* initialize FIFO */
-        // initializeFifo();
-        this->fill_fifo_buffer();
-        this->startThread(0);
+
 
         prepared_to_play = 1;
     }else{}
@@ -106,16 +84,8 @@ void UDPAudioProcessor::releaseResources()
 {
     if (resources_released == 0)
     {
-        /* destroy mutex1 */
-        // fifo_mutex.exit();
-        /* kill thread */
-        this->stopThread(10);
-        /* shut down Opus decoder */
         opus_multistream_decoder_destroy(this->decoder);
-        /* disconnect from server */
-        send_server_msg('D');
-        /* close socket */
-        close(this->cb_data.sock);  
+        disconnect_server();
 
         resources_released = 1;
     }else{}
@@ -191,7 +161,7 @@ void UDPAudioProcessor::fill_fifo_buffer()
     int n;
     unsigned int slen = sizeof(struct sockaddr_in);
     while ( raw_audio_fifo.getNumReady() < raw_audio_fifo.high ) {
-            // printf("%s\n FIFO len: %d", "Filling buffer...", fifoLength());
+            printf("%s  FIFO len: %d\n", "Filling buffer...", raw_audio_fifo.getNumReady());
         n = recvfrom(this->cb_data.sock, buf, MAX_PACKET_SIZE, 0,
             (struct sockaddr*)&this->cb_data.from, &slen);
         if (n < 0) {
@@ -222,28 +192,24 @@ void UDPAudioProcessor::getNextAudioBlock(const juce::AudioSourceChannelInfo &bu
     auto activeOutputChannels = device->getActiveOutputChannels();
     auto max_output_channels = activeOutputChannels.getHighestBit() + 1;
     int buffer_length = bufferToFill.numSamples*NUM_CHAN;
-    float output[buffer_length];
-    memset(output, 0, sizeof(output));
-    // output.ensureStorageAllocated(buffer_length);
-    // juce::FloatVectorOperations::clear(output.getRawDataPointer(), buffer_length);
 
-    // if (fifo_mutex.tryEnter()){
-        raw_audio_fifo.readFrom(output, buffer_length);
-        // fifo_mutex.exit();
-    // }
     // printf("output buffer len: %d\n", output.size());
     // printf("output buffer capacity: %d\n", buffer_length);
     // printf("FIFO len: %d\n", raw_audio_fifo.data.size());
     // printf("output channels: %d\n", max_output_channels);
 
+    if (raw_audio_fifo.getNumReady() > raw_audio_fifo.low && connected_to_server == 1) {
 
-    if (raw_audio_fifo.getNumReady() > raw_audio_fifo.low) {
+        float output[buffer_length];
+        memset(output, 0, sizeof(output));
+        raw_audio_fifo.readFrom(output, buffer_length);
         switch(this->playback_mode){
             case PBMODE_MONO:
             {
                 auto* outBuffer = bufferToFill.buffer->getWritePointer(0, bufferToFill.startSample);
+                auto* outBuffer2 = bufferToFill.buffer->getWritePointer(1, bufferToFill.startSample);
                 for (int i=0; i<bufferToFill.numSamples; i++){
-                    outBuffer[i] = (0.374107 * output[i*6 + 1] + \
+                    outBuffer[i] = mute * volume * (0.374107 * output[i*6 + 1] + \
                                     0.529067 * output[i*6 + 0] + \
                                     0.458186 * output[i*6 + 3] + \
                                     0.264534 * output[i*6 + 4] + \
@@ -253,6 +219,7 @@ void UDPAudioProcessor::getNextAudioBlock(const juce::AudioSourceChannelInfo &bu
                                     0.458186 * output[i*6 + 4] + \
                                     0.264534 * output[i*6 + 3] + \
                                     0.374107 * output[i*6 + 5])/2.0;
+                    outBuffer2[i] = outBuffer[i];
                 }
                 // printf("%s\n", "rendering mono");
                 // printf("num_sample to fill: %d\n", bufferToFill.numSamples);
@@ -263,12 +230,12 @@ void UDPAudioProcessor::getNextAudioBlock(const juce::AudioSourceChannelInfo &bu
                 auto* outLeftBuffer = bufferToFill.buffer->getWritePointer(0, bufferToFill.startSample);
                 auto* outRightBuffer = bufferToFill.buffer->getWritePointer(1, bufferToFill.startSample);
                 for (int i=0; i<bufferToFill.numSamples; i++){
-                    outLeftBuffer[i] = 0.374107 * output[i*6 + 1] + \
+                    outLeftBuffer[i] = mute * volume * 0.374107 * output[i*6 + 1] + \
                                     0.529067 * output[i*6 + 0] + \
                                     0.458186 * output[i*6 + 3] + \
                                     0.264534 * output[i*6 + 4] + \
                                     0.374107 * output[i*6 + 5];
-                    outRightBuffer[i] = 0.374107 * output[i*6 + 1] + \
+                    outRightBuffer[i] = mute * volume * 0.374107 * output[i*6 + 1] + \
                                     0.529067 * output[i*6 + 2] + \
                                     0.458186 * output[i*6 + 4] + \
                                     0.264534 * output[i*6 + 3] + \
@@ -288,7 +255,7 @@ void UDPAudioProcessor::getNextAudioBlock(const juce::AudioSourceChannelInfo &bu
                 {
                     auto* outBuffer = bufferToFill.buffer->getWritePointer(channel, bufferToFill.startSample);
                     for (int i=0; i<bufferToFill.numSamples; i++){
-                        outBuffer[i] = output[i*6+channel];
+                        outBuffer[i] = mute * volume * output[i*6+channel];
                     }
                 }
                 break;
@@ -298,9 +265,8 @@ void UDPAudioProcessor::getNextAudioBlock(const juce::AudioSourceChannelInfo &bu
     }
     else {
         /* no data to decode, so just zero output buffer */
-        // bufferToFill.clearActiveBufferRegion();
+        bufferToFill.clearActiveBufferRegion();
         printf("%s\n", "No enough samples, output zero");
-
     }
 }
 
@@ -351,4 +317,58 @@ int UDPAudioProcessor::decode_and_write_to_fifo(unsigned char* rcbits, int n)
         // fifo_mutex.exit();
     // }
     return frame_size;
+}
+
+void UDPAudioProcessor::change_playback_mode(PlaybackMode playback_mode)
+{
+    this->playback_mode = playback_mode;
+    // int output_channels;
+    // if (playback_mode == PBMODE_MONO)
+    //     output_channels = 1;
+    // if ((playback_mode == PBMODE_BINAURAL) || (playback_mode == PBMODE_STEREO))
+    //     output_channels = 2;
+    // if (playback_mode == PBMODE_5_1)
+    //     output_channels = 6;
+    // setAudioChannels(0, output_channels);
+}
+
+void UDPAudioProcessor::connect_to_server(char* host, int portno)
+{
+    this->host = host;
+    this->portno = portno;
+    if (connected_to_server == 0)
+    {
+        /* Create socket */
+        if ( (this->cb_data.sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+            perror("ERROR, cannot open socket");
+            exit(EXIT_FAILURE);
+        }
+        /* load host (server) data structure */
+        this->cb_data.server.sin_family = AF_INET;
+        if ( (this->hp = gethostbyname(this->host)) == 0) {
+            perror("ERROR, no such host");
+            exit(EXIT_FAILURE);
+        }
+        /* load host (server) port (for client) */
+        bcopy((char *)hp->h_addr, 
+            (char *)&cb_data.server.sin_addr, hp->h_length);
+        /* convert short from host to network byte order */
+        this->cb_data.server.sin_port = htons(this->portno);
+        /* connect to server */
+        send_server_msg('C');
+        // printf("host: %s, port: %d\n", , this->portno);
+        fill_fifo_buffer();
+        connected_to_server = 1;
+        printf("%s\n", "Connected to server!");
+        startThread(10);
+    }
+}
+
+void UDPAudioProcessor::disconnect_server()
+{
+    this->stopThread(10);
+    /* disconnect from server */
+    send_server_msg('D');
+    /* close socket */
+    close(this->cb_data.sock);
 }

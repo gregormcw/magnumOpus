@@ -11,10 +11,10 @@ MainComponent::MainComponent()
     setSize (WIN_WIDTH, WIN_HEIGHT);
     
     volSlider.setSliderStyle(juce::Slider::SliderStyle::LinearHorizontal);
-    volSlider.setRange(0.0f, 1.0f, 0.02f);
+    volSlider.setRange(0.0f, 1.0f, 0.002f);
     volSlider.setValue(0.7f);
     volSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 20);
-    volSlider.onValueChange = [this] { volume = volSlider.getValue(); };
+    volSlider.onValueChange = [this] { udp_audio_processor.set_volume(volSlider.getValue()); };
     addAndMakeVisible(volSlider);
     
     // =========================================================
@@ -25,7 +25,7 @@ MainComponent::MainComponent()
     buttonConnect.setToggleState(false, juce::NotificationType::dontSendNotification);
     
     // Call associated function on click
-    buttonConnect.onClick = [this]() { play(); };
+    buttonConnect.onClick = [this]() { mute(); };
     
     // Add listener to button
     buttonConnect.addListener(this);
@@ -37,17 +37,17 @@ MainComponent::MainComponent()
     
     // Audio format buttons
     buttonStereo.setToggleState(false, juce::NotificationType::dontSendNotification);
-    buttonStereo.onClick = [this]() { play(); };
+    buttonStereo.onClick = [this]() { mute(); };
     buttonStereo.addListener(this);
     addAndMakeVisible(buttonStereo);
     
-    buttonBinaural.setToggleState(false, juce::NotificationType::dontSendNotification);
-    buttonBinaural.onClick = [this]() { play(); };
-    buttonBinaural.addListener(this);
-    addAndMakeVisible(buttonBinaural);
+    buttonMono.setToggleState(false, juce::NotificationType::dontSendNotification);
+    buttonMono.onClick = [this]() { mute(); };
+    buttonMono.addListener(this);
+    addAndMakeVisible(buttonMono);
     
     button5_1.setToggleState(false, juce::NotificationType::dontSendNotification);
-    button5_1.onClick = [this]() { play(); };
+    button5_1.onClick = [this]() { mute(); };
     button5_1.addListener(this);
     addAndMakeVisible(button5_1);
     
@@ -57,15 +57,17 @@ MainComponent::MainComponent()
     buttonPlay.addListener(this);
     addAndMakeVisible(buttonPlay);
     
-    buttonMute.setToggleState(false, juce::NotificationType::dontSendNotification);
-    buttonMute.onClick = [this]() { mute(); };
-    buttonMute.addListener(this);
-    addAndMakeVisible(buttonMute);
+    // buttonMute.setToggleState(false, juce::NotificationType::dontSendNotification);
+    // buttonMute.onClick = [this]() { mute(); };
+    // buttonMute.addListener(this);
+    // addAndMakeVisible(buttonMute);
     
     buttonStop.setToggleState(false, juce::NotificationType::dontSendNotification);
     buttonStop.onClick = [this]() { stop(); };
     buttonStop.addListener(this);
     addAndMakeVisible(buttonStop);
+
+    // udp_audio_processor.prepareToPlay(512, 48000.d);
     
 }
 
@@ -79,14 +81,10 @@ void MainComponent::play() {
         playState = PlayState::Play;
         
     }
+    udp_audio_processor.set_mute(1.0f);
 }
 
 void MainComponent::mute() {
-    
-    if (playState == PlayState::Play) {
-        playState = PlayState::Mute;
-    
-    }
 }
 
 void MainComponent::stop() {
@@ -95,6 +93,7 @@ void MainComponent::stop() {
         playState = PlayState::Stop;
         
     }
+    udp_audio_processor.set_mute(0.0f);
 }
 
 // ====================================
@@ -114,12 +113,15 @@ void MainComponent::buttonClicked(juce::Button* button) {
             // ============================================================
             // == REPLACE WITH VALID SERVER ADDRESS AND/OR FUNCTION CALL ==
             // ============================================================
-            std::cout << "Connecting to server: " << serverAdd << std::endl;
+            std::cout << "Connecting to server: " << host << ":" << std::to_string(portno) << std::endl;
+            udp_audio_processor.connect_to_server(host, portno);
             buttonConnect.setColour(0x1000100, juce::Colours::orange);
         }
         else {
-            std::cout << "Disconnecting from server: " << serverAdd << std::endl;
+            std::cout << "Disconnecting from server: " << host << std::to_string(portno) << std::endl;
             buttonConnect.setColour(0x1000100, juce::Colours::black);
+            udp_audio_processor.disconnect_server();
+            // delete this->udp_audio_processor;
         }
         
         isConnected = !isConnected;
@@ -129,19 +131,21 @@ void MainComponent::buttonClicked(juce::Button* button) {
     if (button == &buttonStereo) {
         
         // 0 = Stereo
-        playbackFormat = 0;
+        playbackFormat = PBMODE_STEREO;
+        udp_audio_processor.change_playback_mode(playbackFormat);
         
         buttonStereo.setColour(0x1000100, juce::Colours::orange);
-        buttonBinaural.setColour(0x1000100, juce::Colours::black);
+        buttonMono.setColour(0x1000100, juce::Colours::black);
         button5_1.setColour(0x1000100, juce::Colours::black);
     }
     
-    if (button == &buttonBinaural) {
+    if (button == &buttonMono) {
         
         // 1 = Binaural
-        playbackFormat = 1;
+        playbackFormat = PBMODE_MONO;
+        udp_audio_processor.change_playback_mode(playbackFormat);
         
-        buttonBinaural.setColour(0x1000100, juce::Colours::orange);
+        buttonMono.setColour(0x1000100, juce::Colours::orange);
         buttonStereo.setColour(0x1000100, juce::Colours::black);
         button5_1.setColour(0x1000100, juce::Colours::black);
     }
@@ -149,10 +153,11 @@ void MainComponent::buttonClicked(juce::Button* button) {
     if (button == &button5_1) {
         
         // 2 = 5.1
-        playbackFormat = 2;
+        playbackFormat = PBMODE_5_1;
+        udp_audio_processor.change_playback_mode(playbackFormat);
         
         button5_1.setColour(0x1000100, juce::Colours::orange);
-        buttonBinaural.setColour(0x1000100, juce::Colours::black);
+        buttonMono.setColour(0x1000100, juce::Colours::black);
         buttonStereo.setColour(0x1000100, juce::Colours::black);
     }
     
@@ -168,22 +173,22 @@ void MainComponent::buttonClicked(juce::Button* button) {
         buttonStop.colourChanged();
     }
     
-    // If mute button clicked, change state and button color
-    if (button == &buttonMute) {
+    // // If mute button clicked, change state and button color
+    // if (button == &buttonMute) {
         
-        if (!isMuted) {
-            buttonMute.setColour(0x1000100, juce::Colours::indianred);
-            buttonMute.setColour(0x1000102, juce::Colours::whitesmoke);
-        }
-        else {
-            buttonMute.setColour(0x1000100, juce::Colours::whitesmoke);
-            buttonMute.setColour(0x1000102, juce::Colours::black);
-        }
+    //     if (!isMuted) {
+    //         buttonMute.setColour(0x1000100, juce::Colours::indianred);
+    //         buttonMute.setColour(0x1000102, juce::Colours::whitesmoke);
+    //     }
+    //     else {
+    //         buttonMute.setColour(0x1000100, juce::Colours::whitesmoke);
+    //         buttonMute.setColour(0x1000102, juce::Colours::black);
+    //     }
         
-        isMuted = !isMuted;
-        buttonMute.colourChanged();
+    //     isMuted = !isMuted;
+    //     buttonMute.colourChanged();
         
-    }
+    // }
     
     // If stop button clicked, set isPlaying to false and change button color
     if (button == &buttonStop) {
@@ -243,19 +248,19 @@ void MainComponent::resized()
     int border = selectionButtonWidth / 12;
     
     buttonStereo.setColour(0x1000100, juce::Colours::black);
-    buttonBinaural.setColour(0x1000100, juce::Colours::black);
+    buttonMono.setColour(0x1000100, juce::Colours::black);
     button5_1.setColour(0x1000100, juce::Colours::black);
     
     buttonConnect.setColour(0x1000100, juce::Colours::black);
-    buttonMute.setColour(0x1000100, juce::Colours::whitesmoke);
-    buttonMute.setColour(0x1000102, juce::Colours::black);
+    // buttonMute.setColour(0x1000100, juce::Colours::whitesmoke);
+    // buttonMute.setColour(0x1000102, juce::Colours::black);
     buttonPlay.setColour(0x1000100, juce::Colours::whitesmoke);
     buttonPlay.setColour(0x1000102, juce::Colours::black);
     buttonStop.setColour(0x1000100, juce::Colours::whitesmoke);
     buttonStop.setColour(0x1000102, juce::Colours::black);
     
-    buttonMute.setBounds(getWidth()/2 - 1.5*ctlButtonWidth - 1.36*border, getHeight()/2 + 1.24*ctlButtonHeight,
-                         ctlButtonWidth, ctlButtonHeight);
+    // buttonMute.setBounds(getWidth()/2 - 1.5*ctlButtonWidth - 1.36*border, getHeight()/2 + 1.24*ctlButtonHeight,
+    //                      ctlButtonWidth, ctlButtonHeight);
     
     buttonPlay.setBounds(getWidth()/2 - ctlButtonWidth/2, getHeight()/2 + 1.24*ctlButtonHeight,
                           ctlButtonWidth, ctlButtonHeight);
@@ -273,7 +278,7 @@ void MainComponent::resized()
     buttonStereo.setBounds(getWidth()/2 - 1.5*selectionButtonWidth - 4*border, getHeight()/4 + selectionButtonHeight/5,
                            selectionButtonWidth, selectionButtonHeight);
     
-    buttonBinaural.setBounds(getWidth()/2 - selectionButtonWidth/2, getHeight()/4 + selectionButtonHeight/5,
+    buttonMono.setBounds(getWidth()/2 - selectionButtonWidth/2, getHeight()/4 + selectionButtonHeight/5,
                         selectionButtonWidth, selectionButtonHeight);
     
     button5_1.setBounds(getWidth()/2 + selectionButtonWidth/2 + 4*border, getHeight()/4 + selectionButtonHeight/5,
