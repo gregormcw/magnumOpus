@@ -230,16 +230,16 @@ void UDPAudioProcessor::getNextAudioBlock(const juce::AudioSourceChannelInfo &bu
                 auto* outLeftBuffer = bufferToFill.buffer->getWritePointer(0, bufferToFill.startSample);
                 auto* outRightBuffer = bufferToFill.buffer->getWritePointer(1, bufferToFill.startSample);
                 for (int i=0; i<bufferToFill.numSamples; i++){
-                    outLeftBuffer[i] = mute * volume * 0.374107 * output[i*6 + 1] + \
+                    outLeftBuffer[i] = mute * volume * (0.374107 * output[i*6 + 1] + \
                                     0.529067 * output[i*6 + 0] + \
                                     0.458186 * output[i*6 + 3] + \
                                     0.264534 * output[i*6 + 4] + \
-                                    0.374107 * output[i*6 + 5];
-                    outRightBuffer[i] = mute * volume * 0.374107 * output[i*6 + 1] + \
+                                    0.374107 * output[i*6 + 5]);
+                    outRightBuffer[i] = mute * volume * (0.374107 * output[i*6 + 1] + \
                                     0.529067 * output[i*6 + 2] + \
                                     0.458186 * output[i*6 + 4] + \
                                     0.264534 * output[i*6 + 3] + \
-                                    0.374107 * output[i*6 + 5];
+                                    0.374107 * output[i*6 + 5]);
                 }
                 // printf("%s\n", "rendering stereo");
                 break;
