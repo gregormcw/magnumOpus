@@ -93,6 +93,11 @@ public:
     int decode_and_write_to_fifo(unsigned char* rcbits, int n);
     unsigned char rcbits[MAX_PACKET_SIZE];
     unsigned int slen = sizeof(struct sockaddr_in);
+    void set_volume(float new_volume) {this->volume = new_volume;}
+    void set_mute(float new_mute) {this->mute = new_mute;}
+    void change_playback_mode(PlaybackMode playback_mode);
+    void connect_to_server(char* host, int portno);
+    void disconnect_server();
 
 private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (UDPAudioProcessor)
@@ -101,6 +106,7 @@ private:
     int portno;
     char *host;
     struct hostent *hp;
+    int connected_to_server = 0;
     unsigned char mapping[6] = {0,1,2,3,4,5};
     /*Holds the state of the and decoder */
     OpusMSDecoder *decoder;
@@ -122,4 +128,7 @@ private:
     FIFO raw_audio_fifo;
 
     enum PlaybackMode playback_mode = PBMODE_5_1;
+
+    float volume = 0.7f;
+    float mute = 0.f;
 };
